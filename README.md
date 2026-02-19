@@ -1,13 +1,58 @@
 # PostgreSQL High Availability Playbook (Patroni + etcd + HAProxy + keepalived)
 
 This Ansible playbook automates the deployment of a highly available PostgreSQL cluster using:
-- **Patroni**: PostgreSQL cluster orchestration
-- **etcd**: Distributed configuration store (mTLS)
-- **HAProxy**: Load balancing with health checks
-- **keepalived**: Virtual IP failover
+- **Patroni**: PostgreSQL cluster orchestration and automatic failover management.
+- **etcd**: Distributed configuration store (mTLS) to maintain cluster state and consensus.
+- **HAProxy**: Load balancing with health checks to route traffic to the active primary node.
+- **keepalived**: Virtual IP failover to ensure the routing layer itself is highly available.
 
+## Topology & Architecture
 
-## Topology
+The following diagram illustrates the exact traffic flow and node architecture for this deployment:
+
+```text
+      +-------------------------------------------------------+
+      |                   Client Applications                 |
+      +---------------------------+---------------------------+
+                                  |
+                                  v
+                      +-----------------------+
+                      |   Virtual IP (VIP)    |
+                      |    192.168.60.110     |
+                      |     (keepalived)      |
+                      +-----------+-----------+
+                                  |
+            +---------------------+---------------------+
+            |                     |                     |
+            v                     v                     v
+ +-------------------+ +-------------------+ +-------------------+
+ |    haproxy-01     | |    haproxy-02     | |    haproxy-03     |
+ |  192.168.60.100   | |  192.168.60.101   | |  192.168.60.102   |
+ +---------+---------+ +---------+---------+ +---------+---------+
+           |                     |                     |
+           +---------------------+---------------------+
+                                 |
+                         (Read/Write Routing)
+                                 |
+            +--------------------+----------------------+
+            |                    |                      |
+            v                    v                      v
+ +-------------------+ +-------------------+ +-------------------+
+ |    postgres-01    | |    postgres-02    | |    postgres-03    |
+ |  192.168.60.103   | |  192.168.60.104   | |  192.168.60.105   |
+ |   (PG + Patroni)  | |   (PG + Patroni)  | |   (PG + Patroni)  |
+ +---------+---------+ +---------+---------+ +---------+---------+
+           |                     |                      |
+           +---------------------+----------------------+
+                                 |
+                                 v
+                      +-----------------------+
+                      |      etcd Cluster     |
+                      | (Distributed Consensus|
+                      |       Store)          |
+                      +-----------------------+
+```
+
 - **PostgreSQL nodes (3)**: postgres-01, postgres-02, postgres-03 (192.168.60.103/104/105)
 - **HAProxy nodes (3)**: haproxy-01, haproxy-02, haproxy-03 (192.168.60.100/101/102)
 - **VIP**: 192.168.60.110
@@ -51,7 +96,9 @@ This Ansible playbook automates the deployment of a highly available PostgreSQL 
 
 ---
 
-## Patroni Procedure
+## Patroni Procedure (TSE Server)
+
+> **NOTICE:** All maintenance and database operations must be performed **outside of market hours** (the market time is over or has not started 9:00 AM - 3:00 PM).
 
 ### Pro-Tip
 Instead of using `-c /etc/patroni/patroni.yaml` with `patronictl` you can set an alias in your `.profile` or `.bashrc` file:
