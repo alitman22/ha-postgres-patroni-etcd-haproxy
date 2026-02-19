@@ -1,0 +1,15 @@
+---
+patroni_scope: "postgresql-cluster"
+patroni_namespace: "/service/"
+patroni_rest_port: 8008
+patroni_restapi_certfile: "{{ postgres_ssl_dir }}/server.pem"
+
+patroni_bootstrap_ttl: 30
+patroni_loop_wait: 10
+patroni_retry_timeout: 10
+patroni_maximum_lag_on_failover: 1048576
+
+patroni_tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false

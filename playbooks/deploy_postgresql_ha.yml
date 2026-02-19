@@ -1,0 +1,54 @@
+---
+- name: PostgreSQL HA Deployment
+  hosts: all
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all.yml
+
+  roles:
+    - role: common
+      tags: common
+
+    - role: certificates
+      tags: certificates
+      when: inventory_hostname in groups['postgresql_cluster']
+
+    - role: postgresql
+      tags: postgresql
+      when: inventory_hostname in groups['postgresql_cluster']
+
+    - role: etcd
+      tags: etcd
+      when: inventory_hostname in groups['postgresql_cluster']
+
+    - role: patroni
+      tags: patroni
+      when: inventory_hostname in groups['postgresql_cluster']
+
+    - role: haproxy
+      tags: haproxy
+      when: inventory_hostname in groups['haproxy_cluster']
+
+    - role: keepalived
+      tags: keepalived
+      when: inventory_hostname in groups['haproxy_cluster']
+
+  post_tasks:
+    - name: Verify PostgreSQL cluster
+      shell: |
+        etcdctl --endpoints=https://{{ ansible_host }}:2379 \
+          --cacert={{ etcd_ssl_dir }}/ca.crt \
+          --cert={{ etcd_ssl_dir }}/etcd-{{ inventory_hostname }}.crt \
+          --key={{ etcd_ssl_dir }}/etcd-{{ inventory_hostname }}.key \
+          endpoint status --write-out=table
+      when: inventory_hostname in groups['postgresql_cluster']
+      tags: verify
+
+    - name: Test VIP connectivity
+      wait_for:
+        host: "{{ haproxy_vip }}"
+        port: 5432
+        delay: 5
+        timeout: 30
+      when: inventory_hostname == groups['haproxy_cluster'][0]
+      tags: verify

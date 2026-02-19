@@ -1,0 +1,45 @@
+---
+# Global variables
+etcd_version: "3.5.17"
+postgresql_version: "17"
+postgresql_bin_path: "/usr/lib/postgresql/17/bin"
+
+# Network configuration
+etcd_cluster_ips:
+  - 192.168.60.103:2379
+  - 192.168.60.104:2379
+  - 192.168.60.105:2379
+
+etcd_cluster_nodes:
+  - name: postgresql-01
+    ip: 192.168.60.103
+  - name: postgresql-02
+    ip: 192.168.60.104
+  - name: postgresql-03
+    ip: 192.168.60.105
+
+postgres_cluster_nodes:
+  - name: postgresql-01
+    ip: 192.168.60.103
+  - name: postgresql-02
+    ip: 192.168.60.104
+  - name: postgresql-03
+    ip: 192.168.60.105
+
+haproxy_vip: 192.168.60.110
+keepalived_router_id: 51
+keepalived_auth_pass: "CHANGE_ME_SECURE_PASSWORD"
+
+# TLS/SSL paths
+etcd_ssl_dir: "/etc/etcd/ssl"
+postgres_ssl_dir: "/var/lib/postgresql/ssl"
+cert_validity_days: 7300
+
+# PostgreSQL configuration
+postgres_superuser: postgres
+postgres_superuser_password: "CHANGE_ME_SECURE_PASSWORD"
+postgres_replication_user: replicator
+postgres_replication_password: "CHANGE_ME_SECURE_PASSWORD"
+postgres_data_dir: "/var/lib/postgresql/data"
+postgres_max_connections: 100
+postgres_shared_buffers: "256MB"

@@ -1,0 +1,28 @@
+- name: Install database software
+  apt:
+    name: "{{ database_package }}"
+    state: present
+
+- name: Configure database
+  template:
+    src: database.conf.j2
+    dest: /etc/database.conf
+  notify: Restart database service
+
+- name: Create database
+  mysql_db:
+    name: "{{ database_name }}"
+    state: present
+
+- name: Create database user
+  mysql_user:
+    name: "{{ database_user }}"
+    password: "{{ database_password }}"
+    priv: "{{ database_name }}.*:ALL"
+    state: present
+
+- name: Ensure database service is running
+  service:
+    name: "{{ database_service }}"
+    state: started
+    enabled: true

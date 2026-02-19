@@ -1,0 +1,24 @@
+---
+- name: Generate TLS Certificates
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Create certificates directory
+      file:
+        path: "./certs"
+        state: directory
+
+    - name: Generate etcd CA key
+      openssl_privatekey:
+        path: "./certs/ca.key"
+        size: 2048
+
+    - name: Generate etcd CA certificate
+      openssl_certificate:
+        path: "./certs/ca.crt"
+        privatekey_path: "./certs/ca.key"
+        provider: selfsigned
+        common_name: "etcd-ca"
+        valid_days: 7300
+      vars:
+        ansible_python_interpreter: /usr/bin/python3

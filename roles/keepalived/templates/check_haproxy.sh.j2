@@ -1,0 +1,9 @@
+#!/bin/bash
+PORT=5432
+if ! pidof haproxy >/dev/null; then
+    exit 1
+fi
+if ! ss -ltn | grep -q ":${PORT}"; then
+    exit 2
+fi
+exit 0

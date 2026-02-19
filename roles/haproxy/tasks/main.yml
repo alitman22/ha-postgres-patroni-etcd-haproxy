@@ -1,0 +1,36 @@
+---
+- name: Install HAProxy
+  apt:
+    name: haproxy
+    state: present
+
+- name: Generate HAProxy configuration
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    backup: yes
+    owner: root
+    group: root
+    mode: '0644'
+    validate: haproxy -f %s -c
+  notify: reload haproxy
+
+- name: Enable HAProxy service
+  systemd:
+    name: haproxy
+    enabled: yes
+    state: started
+
+- name: Configure UFW for HAProxy
+  ufw:
+    rule: allow
+    port: "{{ haproxy_frontend_port }}"
+    proto: tcp
+    comment: "PostgreSQL via HAProxy"
+
+- name: Configure UFW for health checks
+  ufw:
+    rule: allow
+    port: "{{ haproxy_health_check_port }}"
+    proto: tcp
+    comment: "Patroni health checks"

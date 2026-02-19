@@ -1,0 +1,16 @@
+[Unit]
+Description=Patroni PostgreSQL Manager
+Documentation=https://patroni.readthedocs.io
+After=network-online.target etcd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/patroni /etc/patroni/config.yml
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

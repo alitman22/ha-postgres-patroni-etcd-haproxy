@@ -1,0 +1,50 @@
+---
+- name: Install keepalived
+  apt:
+    name: keepalived
+    state: present
+
+- name: Create keepalived health check script
+  template:
+    src: check_haproxy.sh.j2
+    dest: /etc/keepalived/check_haproxy.sh
+    owner: keepalived_script
+    group: keepalived_script
+    mode: '0700'
+
+- name: Generate keepalived configuration
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart keepalived
+
+- name: Enable script security in keepalived
+  lineinfile:
+    path: /etc/keepalived/keepalived.conf
+    insertbefore: "^vrrp_script"
+    line: "    enable_script_security"
+  notify: restart keepalived
+
+- name: Enable keepalived service
+  systemd:
+    name: keepalived
+    enabled: yes
+    state: started
+
+- name: Configure UFW for VRRP
+  ufw:
+    rule: allow
+    protocol: "112"
+    comment: "VRRP protocol"
+
+- name: Allow VIP from other keepalived nodes
+  ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+    proto: tcp
+    port: "5432"
+    comment: "HAProxy from keepalived peer"
+  loop: "{{ groups['haproxy_cluster'] | map(attribute='ansible_host') | list }}"

@@ -1,0 +1,8 @@
+server_name: "webserver"
+server_port: 80
+document_root: "/var/www/html"
+index_file: "index.html"
+server_admin: "admin@example.com"
+ssl_enabled: false
+ssl_certificate: "/etc/ssl/certs/server.crt"
+ssl_certificate_key: "/etc/ssl/private/server.key"

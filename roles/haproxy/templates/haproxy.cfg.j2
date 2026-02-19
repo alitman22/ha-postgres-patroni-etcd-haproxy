@@ -1,0 +1,26 @@
+global
+    log stdout local0
+    maxconn 4096
+
+defaults
+    log     global
+    mode    tcp
+    option  tcplog
+    retries 3
+
+frontend postgres_frontend
+    bind *:{{ haproxy_frontend_port }}
+    mode tcp
+    default_backend postgres_backend
+    timeout client {{ haproxy_backend_timeout_client }}
+
+backend postgres_backend
+    mode tcp
+    option tcp-check
+    option httpchk GET /primary
+    http-check expect status 200
+    timeout connect {{ haproxy_backend_timeout_connect }}
+    timeout server {{ haproxy_backend_timeout_server }}
+    {% for node in postgres_cluster_nodes %}
+    server {{ node.name }} {{ node.ip }}:5432 port {{ haproxy_health_check_port }} check check-ssl verify none
+    {% endfor %}

@@ -1,0 +1,56 @@
+scope: {{ patroni_scope }}
+namespace: {{ patroni_namespace }}
+name: {{ patroni_name }}
+
+etcd3:
+  hosts: {% for ip in etcd_cluster_ips %}{{ ip }}{% if not loop.last %},{% endif %}{% endfor %}
+
+  protocol: https
+  cacert: {{ etcd_ssl_dir }}/ca.crt
+  cert: {{ etcd_ssl_dir }}/etcd-{{ inventory_hostname }}.crt
+  key: {{ etcd_ssl_dir }}/etcd-{{ inventory_hostname }}.key
+
+restapi:
+  listen: 0.0.0.0:{{ patroni_rest_port }}
+  connect_address: {{ ansible_host }}:{{ patroni_rest_port }}
+  certfile: {{ patroni_restapi_certfile }}
+
+bootstrap:
+  dcs:
+    ttl: {{ patroni_bootstrap_ttl }}
+    loop_wait: {{ patroni_loop_wait }}
+    retry_timeout: {{ patroni_retry_timeout }}
+    maximum_lag_on_failover: {{ patroni_maximum_lag_on_failover }}
+    postgresql:
+      parameters:
+        ssl: 'on'
+        ssl_cert_file: {{ postgres_ssl_dir }}/server.crt
+        ssl_key_file: {{ postgres_ssl_dir }}/server.key
+      pg_hba:
+        - hostssl replication replicator 127.0.0.1/32 md5
+        {% for node in postgres_cluster_nodes %}
+        - hostssl replication replicator {{ node.ip }}/32 md5
+        {% endfor %}
+        - hostssl all all 127.0.0.1/32 md5
+        - hostssl all all 0.0.0.0/0 md5
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: {{ ansible_host }}:5432
+  data_dir: {{ postgres_data_dir }}
+  bin_dir: {{ postgresql_bin_path }}
+  authentication:
+    superuser:
+      username: {{ postgres_superuser }}
+      password: {{ postgres_superuser_password }}
+    replication:
+      username: {{ postgres_replication_user }}
+      password: {{ postgres_replication_password }}
+  parameters:
+    max_connections: {{ postgres_max_connections }}
+    shared_buffers: {{ postgres_shared_buffers }}
+
+tags: {{ patroni_tags }}

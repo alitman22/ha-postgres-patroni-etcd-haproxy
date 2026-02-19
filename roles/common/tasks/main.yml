@@ -1,0 +1,61 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install base packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - net-tools
+      - htop
+      - vim
+      - acl
+      - openssh-client
+      - openssh-server
+    state: present
+
+- name: Enable UFW firewall
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Create system users
+  user:
+    name: "{{ item }}"
+    system: yes
+    shell: /bin/false
+    home: "/var/lib/{{ item }}"
+    createhome: yes
+  loop:
+    - etcd
+    - keepalived_script
+
+- name: Set up SSH key-based authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication no"
+    state: present
+  notify: restart sshd
+
+- name: Configure system limits for etcd
+  lineinfile:
+    path: /etc/security/limits.conf
+    line: "{{ item }}"
+  loop:
+    - "etcd soft nofile 40000"
+    - "etcd hard nofile 40000"
+    state: present
+    shell: /bin/bash
+    groups: sudo
+
+- name: Set up SSH key for common user
+  authorized_key:
+    user: commonuser
+    state: present
+    key: "{{ lookup('file', 'path/to/your/public/key.pub') }}"

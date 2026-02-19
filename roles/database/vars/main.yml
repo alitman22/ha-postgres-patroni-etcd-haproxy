@@ -1,0 +1,7 @@
+database_name: my_database
+database_user: db_user
+database_password: secure_password
+database_host: localhost
+database_port: 5432
+backup_path: /var/backups/db_backup
+max_connections: 100

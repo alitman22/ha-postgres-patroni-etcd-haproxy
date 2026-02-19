@@ -1,0 +1,34 @@
+global_defs {
+    enable_script_security
+    script_user keepalived_script
+    router_id POSTGRES_HA
+}
+
+vrrp_script check_haproxy {
+    script "/etc/keepalived/check_haproxy.sh"
+    interval 2
+    fall 3
+    rise 2
+    user keepalived_script
+}
+
+vrrp_instance VI_1 {
+    state {{ keepalived_state }}
+    interface {{ keepalived_interface }}
+    virtual_router_id {{ keepalived_router_id }}
+    priority {{ keepalived_priority }}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+    virtual_ipaddress {
+        {{ haproxy_vip }}
+    }
+    track_script {
+        check_haproxy
+    }
+    notify_master /etc/keepalived/notify.sh
+    notify_backup /etc/keepalived/notify.sh
+    notify_fault /etc/keepalived/notify.sh
+}

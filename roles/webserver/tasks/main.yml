@@ -1,0 +1,18 @@
+- name: Install web server software
+  apt:
+    name: "{{ webserver_package }}"
+    state: present
+
+- name: Configure virtual hosts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items: "{{ virtual_hosts }}"
+
+- name: Deploy web application
+  copy:
+    src: "{{ app_source }}"
+    dest: "{{ app_destination }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'

@@ -1,0 +1,9 @@
+- name: Restart database service
+  service:
+    name: "{{ db_service_name }}"
+    state: restarted
+  when: db_service_changed
+
+- name: Notify when database configuration changes
+  debug:
+    msg: "Database configuration has changed, service will be restarted."

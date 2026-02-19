@@ -1,0 +1,136 @@
+---
+- name: Create local certificate directory
+  local_action:
+    module: file
+    path: "./certs"
+    state: directory
+  run_once: true
+
+- name: Generate etcd CA private key
+  local_action:
+    module: openssl_privatekey
+    path: "./certs/ca.key"
+    size: 2048
+  run_once: true
+
+- name: Generate etcd CA certificate
+  local_action:
+    module: openssl_certificate
+    path: "./certs/ca.crt"
+    privatekey_path: "./certs/ca.key"
+    provider: selfsigned
+    common_name: "etcd-ca"
+    valid_days: "{{ cert_validity_days }}"
+  run_once: true
+
+- name: Generate etcd node certificates
+  local_action:
+    module: openssl_certificate
+    path: "./certs/etcd-{{ inventory_hostname }}.crt"
+    csr_path: "./certs/etcd-{{ inventory_hostname }}.csr"
+    privatekey_path: "./certs/etcd-{{ inventory_hostname }}.key"
+    provider: ownca
+    ownca_path: "./certs/ca.crt"
+    ownca_privatekey_path: "./certs/ca.key"
+    common_name: "etcd-{{ inventory_hostname }}"
+    subject_alt_name: "IP:{{ ansible_host }},IP:127.0.0.1"
+    valid_days: "{{ cert_validity_days }}"
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Create remote certificate directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - "{{ etcd_ssl_dir }}"
+    - "{{ postgres_ssl_dir }}"
+
+- name: Copy CA certificate to remote
+  copy:
+    src: "./certs/ca.crt"
+    dest: "{{ etcd_ssl_dir }}/ca.crt"
+    owner: root
+    group: root
+    mode: '0644'
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Copy etcd node certificates to remote
+  copy:
+    src: "./certs/etcd-{{ inventory_hostname }}.{{ item }}"
+    dest: "{{ etcd_ssl_dir }}/etcd-{{ inventory_hostname }}.{{ item }}"
+    owner: root
+    group: root
+    mode: '0640'
+  loop:
+    - key
+    - crt
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Generate PostgreSQL server certificate
+  shell: |
+    openssl genrsa -out {{ postgres_ssl_dir }}/server.key 4096 2>/dev/null
+  args:
+    creates: "{{ postgres_ssl_dir }}/server.key"
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Generate PostgreSQL server request
+  shell: |
+    openssl req -new -key {{ postgres_ssl_dir }}/server.key \
+      -out {{ postgres_ssl_dir }}/server.req \
+      -subj "/C=US/ST=State/L=City/O=Org/CN={{ inventory_hostname }}" 2>/dev/null
+  args:
+    creates: "{{ postgres_ssl_dir }}/server.req"
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Generate PostgreSQL server certificate
+  shell: |
+    openssl req -x509 -key {{ postgres_ssl_dir }}/server.key \
+      -in {{ postgres_ssl_dir }}/server.req \
+      -out {{ postgres_ssl_dir }}/server.crt \
+      -days {{ cert_validity_days }} 2>/dev/null
+  args:
+    creates: "{{ postgres_ssl_dir }}/server.crt"
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Set PostgreSQL certificate permissions
+  file:
+    path: "{{ postgres_ssl_dir }}/server.{{ item }}"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  loop:
+    - key
+    - crt
+    - req
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Combine certificates for Patroni
+  shell: |
+    cat {{ postgres_ssl_dir }}/server.crt {{ postgres_ssl_dir }}/server.key > {{ postgres_ssl_dir }}/server.pem
+  args:
+    creates: "{{ postgres_ssl_dir }}/server.pem"
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Set combined PEM permissions
+  file:
+    path: "{{ postgres_ssl_dir }}/server.pem"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: inventory_hostname in groups['postgresql_cluster']
+
+- name: Grant postgres ACL for etcd certs
+  acl:
+    path: "{{ etcd_ssl_dir }}/{{ item }}"
+    entity: postgres
+    etype: user
+    permissions: r
+    state: present
+  loop:
+    - ca.crt
+    - "etcd-{{ inventory_hostname }}.crt"
+    - "etcd-{{ inventory_hostname }}.key"
+  when: inventory_hostname in groups['postgresql_cluster']

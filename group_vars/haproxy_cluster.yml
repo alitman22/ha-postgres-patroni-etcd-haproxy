@@ -1,0 +1,6 @@
+---
+haproxy_frontend_port: 5432
+haproxy_backend_timeout_connect: 5s
+haproxy_backend_timeout_client: 30s
+haproxy_backend_timeout_server: 30s
+haproxy_health_check_port: 8008
