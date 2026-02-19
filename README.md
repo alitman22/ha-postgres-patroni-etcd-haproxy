@@ -10,47 +10,52 @@ This Ansible playbook automates the deployment of a highly available PostgreSQL 
 
 The following diagram illustrates the exact traffic flow and node architecture for this deployment:
 
-```text
-      +-------------------------------------------------------+
-      |                   Client Applications                 |
-      +---------------------------+---------------------------+
-                                  |
-                                  v
-                      +-----------------------+
-                      |   Virtual IP (VIP)    |
-                      |    192.168.60.110     |
-                      |     (keepalived)      |
-                      +-----------+-----------+
-                                  |
-            +---------------------+---------------------+
-            |                     |                     |
-            v                     v                     v
- +-------------------+ +-------------------+ +-------------------+
- |    haproxy-01     | |    haproxy-02     | |    haproxy-03     |
- |  192.168.60.100   | |  192.168.60.101   | |  192.168.60.102   |
- +---------+---------+ +---------+---------+ +---------+---------+
-           |                     |                     |
-           +---------------------+---------------------+
-                                 |
-                         (Read/Write Routing)
-                                 |
-            +--------------------+----------------------+
-            |                    |                      |
-            v                    v                      v
- +-------------------+ +-------------------+ +-------------------+
- |    postgres-01    | |    postgres-02    | |    postgres-03    |
- |  192.168.60.103   | |  192.168.60.104   | |  192.168.60.105   |
- |   (PG + Patroni)  | |   (PG + Patroni)  | |   (PG + Patroni)  |
- +---------+---------+ +---------+---------+ +---------+---------+
-           |                     |                      |
-           +---------------------+----------------------+
-                                 |
-                                 v
-                      +-----------------------+
-                      |      etcd Cluster     |
-                      | (Distributed Consensus|
-                      |       Store)          |
-                      +-----------------------+
+```mermaid ...
+flowchart TD
+    %% Define Nodes and Styling
+    clients([Client Applications])
+    
+    vip[/"Virtual IP (VIP)<br>192.168.60.110<br>(keepalived)"/]
+    
+    route(("Read/Write<br>Routing"))
+    
+    etcd[("etcd Cluster<br>(Distributed Consensus Store)")]
+
+    %% HAProxy Subgraph
+    subgraph HAProxy [HAProxy Load Balancers]
+        h1["haproxy-01<br>192.168.60.100"]
+        h2["haproxy-02<br>192.168.60.101"]
+        h3["haproxy-03<br>192.168.60.102"]
+    end
+
+    %% PostgreSQL Subgraph
+    subgraph PostgreSQL [PostgreSQL + Patroni Nodes]
+        p1[("postgres-01<br>192.168.60.103")]
+        p2[("postgres-02<br>192.168.60.104")]
+        p3[("postgres-03<br>192.168.60.105")]
+    end
+
+    %% Connections
+    clients --> vip
+    
+    vip --> h1 & h2 & h3
+    
+    h1 & h2 & h3 --> route
+    
+    route --> p1 & p2 & p3
+    
+    p1 & p2 & p3 -.-> etcd
+
+    %% Add some basic class styling for visual distinction
+    classDef pg fill:#336791,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef proxy fill:#555,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef vipNode fill:#d9534f,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef etcdNode fill:#00A651,stroke:#fff,stroke-width:2px,color:#fff;
+    
+    class p1,p2,p3 pg;
+    class h1,h2,h3 proxy;
+    class vip vipNode;
+    class etcd etcdNode;
 ```
 
 - **PostgreSQL nodes (3)**: postgres-01, postgres-02, postgres-03 (192.168.60.103/104/105)
