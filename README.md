@@ -96,9 +96,7 @@ The following diagram illustrates the exact traffic flow and node architecture f
 
 ---
 
-## Patroni Procedure (TSE Server)
-
-> **NOTICE:** All maintenance and database operations must be performed **outside of market hours** (the market time is over or has not started 9:00 AM - 3:00 PM).
+## Patroni Procedure
 
 ### Pro-Tip
 Instead of using `-c /etc/patroni/patroni.yaml` with `patronictl` you can set an alias in your `.profile` or `.bashrc` file:
